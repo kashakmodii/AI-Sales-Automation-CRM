@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AI CRM Automation</title>
+
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+
+<!-- CRM FORM -->
+
+<div class="container">
+
+    <h1>🤖 AI CRM Lead Capture</h1>
+
+    <p class="subtitle">
+        Transform your business with AI Automation
+    </p>
+
+
+    <form id="leadForm">
+
+
+        <input 
+        type="text"
+        id="name"
+        placeholder="Full Name"
+        required>
+
+
+        <input 
+        type="email"
+        id="email"
+        placeholder="Email Address"
+        required>
+
+
+        <input 
+        type="tel"
+        id="phone"
+        placeholder="Phone Number"
+        required>
+
+
+
+        <select id="service" required>
+
+            <option value="">
+                Select Service
+            </option>
+
+            <option>
+                Website Development
+            </option>
+
+            <option>
+                AI Automation
+            </option>
+
+            <option>
+                CRM Setup
+            </option>
+
+            <option>
+                Digital Marketing
+            </option>
+
+        </select>
+
+
+        <select id="business_type">
+
+            <option value="">
+                Business Type
+            </option>
+
+            <option>
+                Startup
+            </option>
+
+            <option>
+                Small Business
+            </option>
+
+            <option>
+                Medium Business
+            </option>
+
+            <option>
+                Enterprise
+            </option>
+
+        </select>
+
+
+
+        <select id="budget">
+
+            <option value="">
+                Estimated Budget
+            </option>
+
+            <option>
+                Under ₹10,000
+            </option>
+
+            <option>
+                ₹10,000 - ₹50,000
+            </option>
+
+            <option>
+                ₹50,000 - ₹1,00,000
+            </option>
+
+            <option>
+                ₹1,00,000+
+            </option>
+
+        </select>
+
+
+
+        <textarea 
+        id="message"
+        placeholder="Tell us about your project">
+        </textarea>
+
+
+
+        <button type="submit">
+
+            Submit Lead
+
+        </button>
+
+
+    </form>
+
+
+    <p id="responseMessage"></p>
+
+
+</div>
+
+
+
+
+<!-- AI CHATBOT -->
+
+
+<div id="chatbot">
+
+
+    <div id="chat-header">
+
+        🤖 AI Assistant
+
+    </div>
+
+
+
+    <div id="chat-box">
+
+        <div class="bot-message">
+            Hello 👋 How can I help you today?
+        </div>
+
+    </div>
+
+
+
+    <div id="chat-input-area">
+
+
+        <input 
+        type="text"
+        id="chat-input"
+        placeholder="Ask about AI services...">
+
+
+        <button id="send-btn">
+            ➤
+        </button>
+
+
+    </div>
+
+
+</div>
+
+
+
+<script src="script.js"></script>
+
+
+</body>
+</html>

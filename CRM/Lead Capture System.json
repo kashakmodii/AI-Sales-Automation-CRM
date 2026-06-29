@@ -1,0 +1,485 @@
+{
+  "name": "Lead Capture System",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-capture",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -608,
+        16
+      ],
+      "id": "abb77ec1-8ca6-433a-96d3-85c2e3510c28",
+      "name": "Webhook",
+      "webhookId": "ebd7a276-a533-4701-9718-9db910584f1a"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1SfpmZrBhXZp_as7oOU0xvNdHlnqvddc4xu9GXO0iaks",
+          "mode": "list",
+          "cachedResultName": "CRM Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SfpmZrBhXZp_as7oOU0xvNdHlnqvddc4xu9GXO0iaks/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SfpmZrBhXZp_as7oOU0xvNdHlnqvddc4xu9GXO0iaks/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.body.name }}",
+            "Email": "={{ $json.body.email }}",
+            "Phone": "={{ $json.body.phone }}",
+            "Service": "={{ $json.body.service }}",
+            "Message": "={{ $json.body.message }}",
+            "Lead Status": "New lead",
+            "Created At": "={{ $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Service",
+              "displayName": "Service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Message",
+              "displayName": "Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead Status",
+              "displayName": "Lead Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Created At",
+              "displayName": "Created At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -432,
+        16
+      ],
+      "id": "7bd98d4b-8a61-475f-b83a-cc6615e6a9ab",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YaHUKZZp1YBARNKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI CRM assistant.\n\nAnalyze the customer lead details below.\n\nTasks:\n1. Classify lead:\n   - Hot\n   - Warm\n   - Cold\n\n2. Detect urgency:\n   - High\n   - Medium\n   - Low\n\n3. Generate short professional sales summary.\n\nIMPORTANT:\n- Return ONLY raw JSON\n- Do NOT use markdown\n- Do NOT use explanations\n\nJSON format:\n\n{\n  \"lead_type\": \"\",\n  \"urgency\": \"\",\n  \"summary\": \"\"\n}\n\nLead Details:\n\nName: {{ $json.Name }}\n\nEmail: {{ $json.Email }}\n\nPhone: {{ $json.Phone }}\n\nService: {{ $json.Service }}\n\nRequirement: {{ $json.Message }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -272,
+        16
+      ],
+      "id": "326603e8-8bac-4822-b22f-e0eabf05dda7",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash:free",
+        "options": {
+          "responseFormat": "text"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -272,
+        192
+      ],
+      "id": "4ebaebd8-4c70-47ea-aa15-ea95baf6cd0e",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "UbkJC4r2lWbdk0S1",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw = $json.output || $json.text || $json.response;\n\nraw = raw.replace(/```json/g, \"\")\n         .replace(/```/g, \"\")\n         .trim();\n\nconst parsed = JSON.parse(raw);\n\nconst original = $('Webhook').first().json.body;\n\nreturn [\n  {\n    json: {\n      Name: original.name,\n      Email: original.email,\n      Phone: original.phone,\n      Service: original.service,\n      Message: original.message,\n\n      lead_type: parsed.lead_type,\n      urgency: parsed.urgency,\n      summary: parsed.summary\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        16
+      ],
+      "id": "0762d27a-b186-451d-87df-f770f5a5a97d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "Lead Received Successfully",
+        "message": "=<h2>Hello ,{{ $('Webhook').item.json.body.name }}</h2>\n\n<p>Thank you for contacting us regarding:</p>\n\n<p><b>{{ $('Webhook').item.json.body.service }}</b></p>\n\n<p>Our team will review your inquiry and contact you shortly.</p>\n\n<br>\n\n<p>Regards,<br>CRM Automation Team</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        32
+      ],
+      "id": "8522bcde-bc0e-49f8-93e3-9a5544f01810",
+      "name": "Send a message",
+      "webhookId": "6364fb88-a6de-4e20-ae6f-e9f06f3f9522",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "637a05a2-f708-43d0-9423-d0786d49f2ec",
+              "leftValue": "={{$json.lead_type}}",
+              "rightValue": "Hot",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        208,
+        16
+      ],
+      "id": "6b1ef90e-8592-432d-b736-26059356b605",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "kashakmodii@gmail.com",
+        "subject": "🔥 HOT LEAD ALERT",
+        "message": "=<h2>🔥 HOT LEAD ALERT</h2>\n\n<p><b>Name:</b> {{ $('Webhook').item.json.body.name }}</p>\n\n<p><b>Email:</b> {{ $('Webhook').item.json.body.email }}</p>\n\n<p><b>Phone:</b> {{ $('Webhook').item.json.body.phone }}</p>\n\n<p><b>Service:</b> {{ $('Webhook').item.json.body.service }}</p>\n\n<p><b>Urgency:</b> {{$json.urgency}}</p>\n\n<hr>\n\n<h3>AI Summary</h3>\n\n<p>{{$json.summary}}</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        -160
+      ],
+      "id": "39d45323-2273-4281-9bd4-619874cb1ba4",
+      "name": "Send a message1",
+      "webhookId": "ade556d7-ae28-4dbf-8416-3d5a5743e346",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        592,
+        272
+      ],
+      "id": "2d206ea0-a881-4b99-a6b5-6412b95ccf6d",
+      "name": "Wait",
+      "webhookId": "4a7715ac-5bd5-4ed0-b875-ef5e3b799674",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "Book Your Free AI CRM Consultation",
+        "message": "=<h2>Hello {{ $('Webhook').item.json.body.name }},</h2>\n\n<p>Thank you for your interest in our AI CRM Automation solutions.</p>\n\n<p>We would love to discuss your requirements and show how automation can help your business.</p>\n\n<p>\n<a href=\"https://calendly.com/kashakmodii/ai-crm-consultation\">\nSchedule Your Free Consultation Meeting\n</a>\n</p>\n\n<p>During the meeting we can discuss:</p>\n\n<ul>\n<li>CRM automation</li>\n<li>Lead management</li>\n<li>AI workflows</li>\n<li>Business process optimization</li>\n</ul>\n\n<br>\n\n<p>Regards,<br>CRM Automation Team</p>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        272
+      ],
+      "id": "0ba8a1c5-53c7-4d2f-a4c2-337a2e31b2f8",
+      "name": "Send a message2",
+      "webhookId": "ddcb6249-ccdb-4db3-a4b7-4372eb1b6da5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "days"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1008,
+        272
+      ],
+      "id": "33b5291b-0f67-4b4f-9a49-60da04c3b942",
+      "name": "Wait1",
+      "webhookId": "d96387bb-e526-4c9a-b2de-81ba9d255c76",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "Final Follow-Up",
+        "message": "=<h2>Hello {{$json.name}},</h2>\n\n<p>This is our final follow-up regarding:</p>\n\n<p><b>{{$json.service}}</b></p>\n\n<p>Let us know if you'd like to proceed.</p>\n\n<br>\n\n<p>Regards,<br>CRM Automation Team</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1216,
+        272
+      ],
+      "id": "fbc360ef-c1a1-4ec6-8d5c-d21c3f0c3453",
+      "name": "Send a message3",
+      "webhookId": "88e59e0f-0366-4a2b-9082-58af3c9a17c4",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message2": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Send a message3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "63d6a620-de9a-4ebb-93a6-bcf898b1bd4f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ceff2089839f56d791f30b588b5102ee964a7a6881c7f488ff172f2aeba42cc9"
+  },
+  "id": "rfzLeZ4c83mMvYam",
+  "tags": []
+}

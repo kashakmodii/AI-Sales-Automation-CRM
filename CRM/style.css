@@ -1,0 +1,295 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+
+body{
+
+    background:
+    linear-gradient(135deg,#0f172a,#2563eb);
+
+    min-height:100vh;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    padding:20px;
+}
+
+
+
+/* CRM CARD */
+
+.container{
+
+    width:450px;
+
+    background:white;
+
+    padding:35px;
+
+    border-radius:20px;
+
+    box-shadow:
+    0 15px 40px rgba(0,0,0,0.3);
+
+}
+
+
+
+h1{
+
+    text-align:center;
+
+    color:#1e3a8a;
+
+}
+
+
+.subtitle{
+
+    text-align:center;
+
+    color:#666;
+
+    margin-top:8px;
+    margin-bottom:25px;
+
+}
+
+
+
+/* FORM */
+
+form{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:15px;
+
+}
+
+
+
+input,
+select,
+textarea{
+
+    width:100%;
+
+    padding:15px;
+
+    border-radius:10px;
+
+    border:1px solid #ccc;
+
+    font-size:15px;
+
+}
+
+
+textarea{
+
+    height:100px;
+
+    resize:none;
+
+}
+
+
+
+input:focus,
+select:focus,
+textarea:focus{
+
+    outline:none;
+
+    border:1px solid #2563eb;
+
+    box-shadow:
+    0 0 8px #60a5fa;
+
+}
+
+
+
+button{
+
+    background:#2563eb;
+
+    color:white;
+
+    border:none;
+
+    padding:15px;
+
+    border-radius:10px;
+
+    font-size:16px;
+
+    cursor:pointer;
+
+    transition:0.3s;
+
+}
+
+
+
+button:hover{
+
+    background:#1e40af;
+
+    transform:translateY(-2px);
+
+}
+
+
+
+#responseMessage{
+
+    margin-top:15px;
+
+    text-align:center;
+
+    font-weight:bold;
+
+}
+
+
+
+/* CHATBOT */
+
+#chatbot{
+
+    position:fixed;
+
+    bottom:20px;
+
+    right:20px;
+
+    width:320px;
+
+    background:white;
+
+    border-radius:20px;
+
+    overflow:hidden;
+
+    box-shadow:
+    0 10px 35px rgba(0,0,0,0.35);
+
+}
+
+
+
+#chat-header{
+
+    background:#2563eb;
+
+    color:white;
+
+    text-align:center;
+
+    padding:15px;
+
+    font-weight:bold;
+
+}
+
+
+
+#chat-box{
+
+    height:280px;
+
+    overflow-y:auto;
+
+    padding:15px;
+
+    background:#f8fafc;
+
+}
+
+
+
+.chat-message,
+.bot-message{
+
+    margin-bottom:10px;
+
+    padding:10px;
+
+    border-radius:10px;
+
+    background:#e2e8f0;
+
+    font-size:14px;
+
+}
+
+
+
+#chat-input-area{
+
+    display:flex;
+
+    border-top:1px solid #ddd;
+
+}
+
+
+
+#chat-input{
+
+    flex:1;
+
+    border:none;
+
+    padding:15px;
+
+    outline:none;
+
+}
+
+
+
+#send-btn{
+
+    width:55px;
+
+    border-radius:0;
+
+}
+
+
+
+/* MOBILE RESPONSIVE */
+
+@media(max-width:768px){
+
+
+.container{
+
+    width:100%;
+
+    margin-bottom:340px;
+
+}
+
+
+#chatbot{
+
+    width:90%;
+
+    right:5%;
+
+}
+
+
+}
