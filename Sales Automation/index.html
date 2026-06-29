@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Sales Lead Capture</title>
+
+  <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+  <div class="container">
+
+    <div class="form-box">
+
+      <h1>Sales Automation CRM</h1>
+
+      <p>
+        Capture, qualify and automate your leads
+      </p>
+
+      <form id="leadForm">
+
+        <!-- NAME -->
+
+        <input
+          type="text"
+          id="name"
+          placeholder="Full Name"
+          required
+        >
+
+        <!-- EMAIL -->
+
+        <input
+          type="email"
+          id="email"
+          placeholder="Email Address"
+          required
+        >
+
+        <!-- PHONE -->
+
+        <input
+          type="tel"
+          id="phone"
+          placeholder="Phone Number"
+          required
+        >
+
+        <!-- SERVICE -->
+
+        <select id="service" required>
+
+          <option value="">
+            Select Service
+          </option>
+
+          <option>
+            CRM Automation
+          </option>
+
+          <option>
+            AI Chatbot
+          </option>
+
+          <option>
+            Lead Generation
+          </option>
+
+          <option>
+            Marketing Automation
+          </option>
+
+          <option>
+            Sales Funnel
+          </option>
+
+        </select>
+
+        <!-- BUSINESS TYPE -->
+
+        <select id="businessType" required>
+
+          <option value="">
+            Select Business Type
+          </option>
+
+          <option>
+            Startup
+          </option>
+
+          <option>
+            Agency
+          </option>
+
+          <option>
+            E-commerce
+          </option>
+
+          <option>
+            SaaS
+          </option>
+
+          <option>
+            Enterprise
+          </option>
+
+          <option>
+            Local Business
+          </option>
+
+        </select>
+
+        <!-- SOURCE -->
+
+        <select id="source" required>
+
+          <option value="">
+            Select Lead Source
+          </option>
+
+          <option>
+            Website Form
+          </option>
+
+          <option>
+            Landing Page
+          </option>
+
+          <option>
+            Email Inquiry
+          </option>
+
+          <option>
+            Manual Entry
+          </option>
+
+        </select>
+
+        <!-- BUDGET -->
+
+        <input
+          type="number"
+          id="budget"
+          placeholder="Budget"
+        >
+
+        <!-- LOCATION -->
+
+        <input
+          type="text"
+          id="location"
+          placeholder="Location"
+        >
+
+        <!-- MESSAGE -->
+
+        <textarea
+          id="message"
+          placeholder="Your Requirement"
+        ></textarea>
+
+        <!-- BUTTON -->
+
+        <button type="submit">
+          Submit Lead
+        </button>
+
+      </form>
+
+      <div id="responseMessage"></div>
+
+    </div>
+
+  </div>
+
+  <!-- SUCCESS MODAL -->
+  <div id="successModal" class="modal" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>✅ Success!</h2>
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p id="modalMessage">Your lead has been submitted successfully!</p>
+        <p class="lead-info" id="leadInfo"></p>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeModal()" class="btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+
+</body>
+
+</html>

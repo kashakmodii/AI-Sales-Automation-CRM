@@ -1,0 +1,1509 @@
+{
+  "name": "Sales Automation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-capture",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1904,
+        4368
+      ],
+      "id": "62a8ab82-7473-4fb3-bca5-211b7a8bebf0",
+      "name": "Lead Capture Webhook",
+      "webhookId": "lead-capture-webhook-main-001"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body || $json;\nconst source = body.source || 'Direct';\nconst leadId = 'LEAD-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);\n\nconst sanitizeString = (str) => {\n  if (!str) return '';\n  return String(str).trim().replace(/[<>\"']/g, '');\n};\n\nconst sanitizeEmail = (email) => {\n  if (!email) return '';\n  const e = String(email).toLowerCase().trim();\n  return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e) ? e : '';\n};\n\nconst sanitizePhone = (phone) => {\n  if (!phone) return '';\n  return String(phone).replace(/\\D/g, '').slice(-10) || '';\n};\n\nconst leadData = {\n  leadId: leadId,\n  source: sanitizeString(source),\n  firstName: sanitizeString(body.firstName || body.name?.split(' ')[0] || ''),\n  lastName: sanitizeString(body.lastName || body.name?.split(' ')[1] || ''),\n  fullName: sanitizeString(body.name || body.firstName + ' ' + body.lastName || ''),\n  email: sanitizeEmail(body.email),\n  phone: sanitizePhone(body.phone),\n  company: sanitizeString(body.company || ''),\n  jobTitle: sanitizeString(body.jobTitle || ''),\n  industry: sanitizeString(body.industry || ''),\n  service: sanitizeString(body.service || ''),\n  budget: Math.max(0, Number(body.budget) || 0),\n  currency: sanitizeString(body.currency || 'INR'),\n  location: sanitizeString(body.location || ''),\n  country: sanitizeString(body.country || ''),\n  message: sanitizeString(body.message || ''),\n  businessType: sanitizeString(body.businessType || ''),\n  employeeCount: Math.max(0, Number(body.employeeCount) || 0),\n  website: sanitizeString(body.website || ''),\n  leadStatus: 'New Lead',\n  leadScore: 0,\n  leadCategory: 'Unqualified',\n  priority: 'Normal',\n  urgency: 'Normal',\n  buyingIntent: 'Unknown',\n  conversionProbability: '0%',\n  assignedTo: 'Unassigned',\n  qualificationStatus: 'Pending',\n  pipelineStage: 'Lead Capture',\n  dealValue: 0,\n  followUpStatus: 'Pending',\n  lastFollowUp: null,\n  nextFollowUp: 'Day 1',\n  createdAt: new Date().toISOString(),\n  updatedAt: new Date().toISOString(),\n  metadata: {\n    userAgent: body.userAgent || '',\n    ipAddress: body.ipAddress || '',\n    utmSource: body.utmSource || '',\n    utmMedium: body.utmMedium || '',\n    utmCampaign: body.utmCampaign || ''\n  }\n};\n\nif (!leadData.email && !leadData.phone) {\n  throw new Error('Email or phone is required');\n}\n\nreturn { json: leadData };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1664,
+        4368
+      ],
+      "id": "64526962-ab6a-46da-89a8-59cf1b4c2f4a",
+      "name": "Lead Data Validator"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const lead = $json;\nlet score = 0;\n\nif (lead.budget >= 500000) score += 50;\nelse if (lead.budget >= 200000) score += 35;\nelse if (lead.budget >= 100000) score += 25;\nelse if (lead.budget >= 50000) score += 15;\nelse if (lead.budget > 0) score += 5;\n\nconst highValueServices = ['CRM Automation', 'AI Chatbot', 'Marketing Automation', 'Enterprise Solutions', 'Custom Development'];\nif (highValueServices.includes(lead.service)) score += 20;\nelse if (lead.service) score += 10;\n\nconst premiumIndustries = ['Technology', 'Finance', 'Healthcare', 'E-commerce', 'SaaS', 'Enterprise'];\nif (premiumIndustries.includes(lead.industry)) score += 15;\nelse if (lead.industry) score += 5;\n\nconst premiumBusinessTypes = ['Enterprise', 'SaaS', 'Agency', 'Startup', 'Corporate'];\nif (premiumBusinessTypes.includes(lead.businessType)) score += 15;\nelse if (lead.businessType) score += 5;\n\nconst premiumCities = ['mumbai', 'bangalore', 'delhi', 'hyderabad', 'pune', 'new york', 'san francisco', 'london', 'toronto'];\nif (premiumCities.includes((lead.location || '').toLowerCase())) score += 10;\n\nconst msg = (lead.message || '').toLowerCase();\nconst urgentKeywords = ['urgent', 'immediately', 'asap', 'today', 'tonight', 'emergency'];\nconst buyingKeywords = ['need', 'interested', 'buy', 'want', 'demo', 'call', 'meeting', 'proposal', 'pricing', 'quote', 'implement', 'start'];\nconst negativeKeywords = ['not sure', 'maybe', 'later', 'research', 'thinking', 'no time'];\n\nurgentKeywords.forEach(kw => {\n  if (msg.includes(kw)) score += 15;\n});\n\nbuyingKeywords.forEach(kw => {\n  if (msg.includes(kw)) score += 5;\n});\n\nnegativeKeywords.forEach(kw => {\n  if (msg.includes(kw)) score -= 5;\n});\n\nif (lead.employeeCount >= 500) score += 10;\nelse if (lead.employeeCount >= 100) score += 5;\n\nif (lead.email && lead.email.match(/^[a-z0-9._%+-]+@(gmail|yahoo|outlook)\\.com$/i)) score += 3;\nif (lead.website) score += 5;\n\nscore = Math.min(100, Math.max(0, score));\n\nlet leadCategory = 'Cold Lead';\nlet priority = 'Low';\nlet urgency = 'Normal';\nlet buyingIntent = 'Low';\n\nif (score >= 80) {\n  leadCategory = 'Hot Lead';\n  priority = 'High';\n  buyingIntent = 'High';\n  if (msg.includes('urgent') || msg.includes('immediately')) urgency = 'Critical';\n  else urgency = 'High';\n} else if (score >= 50) {\n  leadCategory = 'Warm Lead';\n  priority = 'Medium';\n  buyingIntent = 'Medium';\n  urgency = 'Normal';\n} else if (score >= 30) {\n  leadCategory = 'Cool Lead';\n  priority = 'Low';\n  buyingIntent = 'Low';\n  urgency = 'Normal';\n}\n\nlet assignedTo = 'General Sales Team';\nif (lead.service === 'AI Chatbot') assignedTo = 'AI Sales Specialist';\nelse if (lead.service === 'CRM Automation') assignedTo = 'CRM Specialist';\nelse if (lead.service === 'Marketing Automation') assignedTo = 'Marketing Automation Expert';\nelse if (lead.service === 'Enterprise Solutions') assignedTo = 'Enterprise Sales Manager';\nelse if (score >= 80) assignedTo = 'Senior Sales Executive';\nelse if (score >= 50) assignedTo = 'Sales Executive';\n\nlet aiRecommendation = '';\nif (score >= 80) {\n  aiRecommendation = `🔥 HOT LEAD ALERT: High buying intent detected (Score: ${score}/100). Immediate action needed. Call within 2 hours. Budget: ${lead.currency} ${lead.budget}. Message indicates urgency.`;\n} else if (score >= 50) {\n  aiRecommendation = `✅ QUALIFIED LEAD: Good potential for conversion (Score: ${score}/100). Start nurture sequence. Schedule call within 24 hours.`;\n} else if (score >= 30) {\n  aiRecommendation = `📧 NURTURE LEAD: Potential prospect (Score: ${score}/100). Continue nurture automation. Re-engage in follow-up sequence.`;\n} else {\n  aiRecommendation = `❄️ COLD LEAD: Low conversion probability (Score: ${score}/100). Add to nurture list. Revisit in 60 days.`;\n}\n\nconst conversionProbability = `${Math.round(score * 0.8)}%`;\n\nreturn {\n  json: {\n    ...lead,\n    leadScore: score,\n    leadCategory,\n    priority,\n    urgency,\n    buyingIntent,\n    assignedTo,\n    aiRecommendation,\n    conversionProbability,\n    qualificationStatus: score >= 30 ? 'Qualified' : 'Unqualified',\n    pipelineStage: score >= 80 ? 'Hot Lead' : score >= 50 ? 'Qualified' : 'Lead Capture',\n    dealValue: lead.budget,\n    leadOwner: assignedTo,\n    nextFollowUp: score >= 80 ? 'Immediate' : 'Day 1',\n    followUpStatus: score >= 80 ? 'Escalated' : 'Scheduled'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        4368
+      ],
+      "id": "be423b5e-fecc-4f7e-b84d-a1bb2a82840e",
+      "name": "Lead Scoring Engine"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1SfpmZrBhXZp_as7oOU0xvNdHlnqvddc4xu9GXO0iaks",
+          "mode": "list",
+          "cachedResultName": "CRM Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SfpmZrBhXZp_as7oOU0xvNdHlnqvddc4xu9GXO0iaks/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SfpmZrBhXZp_as7oOU0xvNdHlnqvddc4xu9GXO0iaks/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "leadId": "={{ $json.leadId }}",
+            "Email": "={{ $json.email }}",
+            "Name": "={{ $json.fullName }}",
+            "Phone": "={{ $json.phone }}",
+            "Company": "={{ $json.company }}",
+            "Service": "={{ $json.service }}",
+            "Budget": "={{ $json.budget }}",
+            "Message": "={{ $json.message }}",
+            "leadScore": "={{ $json.leadScore }}",
+            "leadCategory": "={{ $json.leadCategory }}",
+            "priority": "={{ $json.priority }}",
+            "assignedTo": "={{ $json.assignedTo }}",
+            "Lead Status": "={{ $json.leadStatus }}",
+            "Created At": "={{ $json.createdAt }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Service",
+              "displayName": "Service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Message",
+              "displayName": "Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead Status",
+              "displayName": "Lead Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Created At",
+              "displayName": "Created At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1184,
+        4368
+      ],
+      "id": "b1c495e5-4ea0-4fef-95ff-924d1c0a6b24",
+      "name": "Save Lead to CRM",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YaHUKZZp1YBARNKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "=Thank You for Your Inquiry -{{ $json.Service }} | {{ $json.Name }}",
+        "message": "=<html><body style='font-family:Arial,sans-serif;line-height:1.6;color:#333'><h2>Hello {{ $('Lead Scoring Engine').item.json.fullName }},</h2><p>Thank you for reaching out to us! We received your inquiry regarding <b>{{ $('Lead Scoring Engine').item.json.service }}</b>.</p><div style='background:#f5f5f5;padding:15px;border-left:4px solid #007bff;margin:20px 0'><p><b>Your Inquiry Details:</b></p><ul style='margin:10px 0'><li><b>Service:</b> {{ $json.Service }}</li><li><b>Company:</b></li><li><b>Location:{{ $('Lead Scoring Engine').item.json.location }}</b> </li><li><b>Lead ID:</b> {{$json.leadId}}</li></ul></div><p>Our sales team is reviewing your requirements and will contact you shortly with relevant solutions tailored to your needs.</p><p><b>AI Assessment:</b></p><blockquote style='background:#fff3cd;padding:10px;border-left:4px solid #ffc107;margin:10px 0'>{{ $('Lead Scoring Engine').item.json.aiRecommendation }}</blockquote><p>If you have any urgent requirements or would like to schedule a quick call, feel free to reply to this email or contact us directly.</p><p>Best Regards,<br><b>Sales Automation System</b><br>Powered by AI</p><hr style='border:none;border-top:1px solid #ddd;margin:20px 0'><p style='font-size:12px;color:#999'>This is an automated response. Your inquiry has been logged in our CRM system.</p></body></html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -944,
+        4256
+      ],
+      "id": "cfff1680-e753-4157-9e5c-2b2eb2ecb2ed",
+      "name": "Send Welcome Email",
+      "webhookId": "0154f837-cf90-4f74-b5ea-58630833a4c9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, leadId: $json.leadId, message: 'Lead captured successfully', score: $json.leadScore, category: $json.leadCategory, nextStep: $json.aiRecommendation }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -944,
+        4416
+      ],
+      "id": "0c4a4390-4258-4f8d-9e73-15110a191068",
+      "name": "Webhook Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "hot-lead-condition",
+              "leftValue": "={{ $json.leadScore }}",
+              "rightValue": 80,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -704,
+        4368
+      ],
+      "id": "e7c70d9a-8881-4b33-b2ad-4cb0c3a75470",
+      "name": "Hot Lead Detected?"
+    },
+    {
+      "parameters": {
+        "sendTo": "sales-manager@yourcompany.com",
+        "subject": "=🔥 URGENT: Hot Lead Alert - {{$json.fullName}} (Score: {{$json.leadScore}}/100)",
+        "message": "=<html><body style='font-family:Arial,sans-serif;line-height:1.6;color:#333'><div style='background:#ffebee;border:2px solid #f44336;padding:20px;border-radius:5px'><h2 style='color:#c62828;margin-top:0'>🔥 HOT LEAD ALERT - IMMEDIATE ACTION REQUIRED</h2><p><b>A high-priority lead has entered the system and requires immediate follow-up.</b></p><table style='width:100%;border-collapse:collapse;margin:20px 0'><tr style='background:#f5f5f5'><td style='padding:10px;border:1px solid #ddd'><b>Lead Name</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.fullName}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Email</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.email}}</td></tr><tr style='background:#f5f5f5'><td style='padding:10px;border:1px solid #ddd'><b>Phone</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.phone}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Company</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.company}}</td></tr><tr style='background:#f5f5f5'><td style='padding:10px;border:1px solid #ddd'><b>Service Needed</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.service}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Budget</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.currency}} {{$json.budget}}</td></tr><tr style='background:#f5f5f5'><td style='padding:10px;border:1px solid #ddd'><b>Lead Score</b></td><td style='padding:10px;border:1px solid #ddd'><b style='color:red'>{{$json.leadScore}}/100</b></td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Urgency</b></td><td style='padding:10px;border:1px solid #ddd'><span style='background:#ffcdd2;padding:3px 8px;border-radius:3px;color:#c62828'>{{$json.urgency}}</span></td></tr><tr style='background:#f5f5f5'><td style='padding:10px;border:1px solid #ddd'><b>Lead ID</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.leadId}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Assigned To</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.assignedTo}}</td></tr></table><div style='background:#fff3cd;border:1px solid #ffc107;padding:15px;border-radius:5px;margin:20px 0'><h3 style='margin-top:0'>📊 AI Analysis:</h3><p>{{$json.aiRecommendation}}</p></div><div style='background:#e8f5e9;border:1px solid #4caf50;padding:15px;border-radius:5px;margin:20px 0'><h3 style='margin-top:0'>✅ Recommended Actions:</h3><ol><li><b>Call immediately</b> - Lead has high buying intent</li><li><b>Send proposal</b> - Budget allocated for the service</li><li><b>Schedule demo</b> - Lead is actively looking</li><li><b>Prepare pitch</b> - Based on {{$json.service}} requirements</li></ol></div><p style='color:red'><b>⏰ Deadline: Contact within 2 hours of receipt</b></p></body></html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -464,
+        4208
+      ],
+      "id": "b1c2c7e3-8a35-4aee-af56-344d2968101c",
+      "name": "Send Hot Lead Alert",
+      "webhookId": "4a568efb-17cc-485d-9e3c-38f3a7d1aef6",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "days"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -704,
+        4528
+      ],
+      "id": "70a5fc72-4af0-4279-963a-1465f959697e",
+      "name": "Wait 1 Day",
+      "webhookId": "wait-day1-webhook-main",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const leadStatus = $json.leadStatus || 'New Lead';\nconst inactiveStatuses = ['Won', 'Lost', 'Closed', 'Unqualified Rejected'];\n\nif (inactiveStatuses.includes(leadStatus)) {\n  return null;\n}\n\nreturn { json: $json };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        4528
+      ],
+      "id": "a1bad6a1-6b68-4579-aa6f-997848b3c46f",
+      "name": "Check Lead Active (Day 1)"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Save Lead to CRM').item.json.Email }}",
+        "subject": "=Your {{ $('Save Lead to CRM').item.json.Service }} Solution - Let's Discuss Your Needs",
+        "message": "=<html><body style='font-family:Arial,sans-serif;line-height:1.6;color:#333'><h2>Hi{{ $('Save Lead to CRM').item.json.Name }} h2><p>Thank you for your interest in {{ $('Save Lead to CRM').item.json.Service }}. I wanted to follow up on your inquiry and explore how we can best serve your needs.</p><div style='background:#e3f2fd;padding:15px;border-left:4px solid #2196f3;margin:20px 0'><p><b>What we understand from your inquiry:</b></p><ul><li>Service Need:{{ $('Save Lead to CRM').item.json.Service }} </li></ul></div><p>Based on your requirements, we have a few options that might work well for you:</p><ol><li><b>Free Consultation Call</b> - 30 minutes to understand your specific needs (no obligation)</li><li><b>Custom Proposal</b> - Tailored solution matching your budget and timeline</li><li><b>Live Demo</b> - See our platform in action and how it solves your challenges</li></ol><p>Would you be available for a quick call this week? I'm flexible with timing and happy to work around your schedule.</p><p><b>Available slots:</b></p><ul><li>Monday - Friday: 10 AM - 6 PM (Your Time)</li><li>Weekend: By appointment</li></ul><p>Simply reply to this email with your preferred time, or click the link below to book directly:</p><p style='margin:20px 0'><a href='https://calendly.com/yourcompany/demo' style='background:#2196f3;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block'>📅 Book a Demo</a></p><p>Looking forward to connecting!</p><p>Best Regards,<br><b>Your Sales Team</b></p></body></html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -224,
+        4432
+      ],
+      "id": "5cf8346a-0393-4a63-b165-41c8c1a2cd04",
+      "name": "Follow-up Email (Day 1)",
+      "webhookId": "fa53897e-2824-46ff-afad-49882d7c2db5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ",
+          "mode": "list",
+          "cachedResultName": "Sales CRM Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "leadId": "={{ $json.leadId }}",
+            "lastFollowUp": "Day 1 - Follow-up Email Sent",
+            "nextFollowUp": "Day 3 - Call Reminder",
+            "followUpStatus": "In Progress",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "leadId"
+          ],
+          "schema": [
+            {
+              "id": "leadId",
+              "displayName": "Lead ID",
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lastFollowUp",
+              "displayName": "Last Follow-up",
+              "type": "string"
+            },
+            {
+              "id": "nextFollowUp",
+              "displayName": "Next Follow-up",
+              "type": "string"
+            },
+            {
+              "id": "followUpStatus",
+              "displayName": "Follow-up Status",
+              "type": "string"
+            },
+            {
+              "id": "updatedAt",
+              "displayName": "Updated At",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        16,
+        4384
+      ],
+      "id": "32ede947-022f-40ab-8a0d-85d9bb7b1aed",
+      "name": "Update CRM (Day 1)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YaHUKZZp1YBARNKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "days"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        16,
+        4528
+      ],
+      "id": "1492c48d-0e29-4ffd-998d-7079eb052d87",
+      "name": "Wait 2 Days (Day 3)",
+      "webhookId": "wait-day3-webhook-main",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const leadStatus = $json.leadStatus || 'New Lead';\nconst inactiveStatuses = ['Won', 'Lost', 'Closed', 'Unqualified Rejected'];\n\nif (inactiveStatuses.includes(leadStatus)) {\n  return null;\n}\n\nreturn { json: $json };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        4528
+      ],
+      "id": "9269e32c-74b6-41e9-8133-dafb860cb2ef",
+      "name": "Check Lead Active (Day 3)"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Quick Question: {{$json.service}} Timeline",
+        "message": "=<html><body style='font-family:Arial,sans-serif;line-height:1.6;color:#333'><h2>Hi {{$json.fullName}},</h2><p>I hope this email finds you well. I wanted to reach out again regarding your interest in {{$json.service}}.</p><p>I noticed you received our initial proposal, and I wanted to check in:</p><div style='background:#f3e5f5;padding:15px;border-left:4px solid #9c27b0;margin:20px 0'><p><b>Quick Questions:</b></p><ul><li>Do you have any questions about the {{$json.service}} solution?</li><li>What's your ideal timeline for implementation?</li><li>Would a demo or consultation call be helpful?</li><li>Do you need any additional information to make a decision?</li></ul></div><p>I'm here to help answer any questions and ensure {{$json.service}} is the right fit for {{$json.company}}.</p><p>Feel free to:</p><ul><li>Reply directly to this email</li><li>Call me at [Your Phone Number]</li><li>Schedule a time that works best for you</li></ul><p>Looking forward to connecting soon!</p><p>Best Regards,<br><b>Your Sales Team</b></p></body></html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        4432
+      ],
+      "id": "36d8da15-a5dd-4488-a86d-dbb265acfbfe",
+      "name": "Follow-up Email (Day 3)",
+      "webhookId": "d287cffd-e810-4957-b6ac-a8563a578bfc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ",
+          "mode": "list",
+          "cachedResultName": "Sales CRM Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "leadId": "={{ $json.leadId }}",
+            "lastFollowUp": "Day 3 - Check-in Email Sent",
+            "nextFollowUp": "Day 5 - Offer Email",
+            "followUpStatus": "Active",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "leadId"
+          ],
+          "schema": [
+            {
+              "id": "leadId",
+              "displayName": "Lead ID",
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lastFollowUp",
+              "displayName": "Last Follow-up",
+              "type": "string"
+            },
+            {
+              "id": "nextFollowUp",
+              "displayName": "Next Follow-up",
+              "type": "string"
+            },
+            {
+              "id": "followUpStatus",
+              "displayName": "Follow-up Status",
+              "type": "string"
+            },
+            {
+              "id": "updatedAt",
+              "displayName": "Updated At",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        736,
+        4384
+      ],
+      "id": "63c5ca03-9136-46a3-92d5-c7aae2892a17",
+      "name": "Update CRM (Day 3)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YaHUKZZp1YBARNKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "days"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        736,
+        4528
+      ],
+      "id": "0042a189-303f-4344-a51b-26a42dc96487",
+      "name": "Wait 2 Days (Day 5)",
+      "webhookId": "wait-day5-webhook-main",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const leadStatus = $json.leadStatus || 'New Lead';\nconst inactiveStatuses = ['Won', 'Lost', 'Closed', 'Unqualified Rejected'];\n\nif (inactiveStatuses.includes(leadStatus)) {\n  return null;\n}\n\nreturn { json: $json };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        4528
+      ],
+      "id": "b601c4b8-b2e2-43a7-a68a-c873566b40a1",
+      "name": "Check Lead Active (Day 5)"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=🎁 Special Offer Inside - {{$json.service}} 30% Discount (48 Hours Only)",
+        "message": "=<html><body style='font-family:Arial,sans-serif;line-height:1.6;color:#333'><h2>Hi {{$json.fullName}},</h2><p>Thank you for your continued interest in {{$json.service}}. I wanted to personally reach out with an exclusive offer just for you.</p><div style='background:#e8f5e9;border:3px solid #4caf50;padding:20px;border-radius:8px;margin:20px 0;text-align:center'><h3 style='color:#2e7d32;margin:0 0 10px 0'>🎁 EXCLUSIVE OFFER</h3><p style='font-size:24px;color:#1b5e20;margin:10px 0'><b>30% Discount on {{$json.service}}</b></p><p style='color:#c8e6c9;margin:10px 0'><b>⏰ Valid for 48 Hours Only!</b></p></div><p><b>What's Included:</b></p><ul style='background:#f5f5f5;padding:15px;border-radius:5px'><li>✅ 30% off first 6 months</li><li>✅ Free setup and migration</li><li>✅ Dedicated account manager</li><li>✅ Priority support</li><li>✅ Custom integration assistance</li><li>✅ Training for your team</li></ul><p><b>Pricing Details:</b></p><div style='background:#fff3e0;padding:15px;border-radius:5px;margin:15px 0'><p>Regular Price: {{$json.currency}} {{$json.budget}}</p><p style='color:#e65100'><b>Your Price: {{$json.currency}} {{Math.round($json.budget * 0.7)}}</b></p><p style='color:green'><b>You Save: {{$json.currency}} {{Math.round($json.budget * 0.3)}}</b></p></div><p><b>Next Steps:</b></p><ol><li>Reply to this email with your confirmation</li><li>Schedule your onboarding call</li><li>Get your account activated within 24 hours</li></ol><p style='background:#ffebee;padding:15px;border-left:4px solid #f44336;border-radius:5px'><b>⚠️ Important:</b> This offer expires in 48 hours. After that, standard pricing applies. Don't miss this opportunity!</p><p>If you have any questions about this offer or need clarification on any features, I'm just a reply away.</p><p>Looking forward to having {{$json.company}} on board!</p><p>Best Regards,<br><b>Your Sales Team</b></p></body></html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1216,
+        4432
+      ],
+      "id": "772316c6-c1ea-4861-b1c7-ca229560bbb4",
+      "name": "Special Offer Email (Day 5)",
+      "webhookId": "fd69bc00-ac08-4f1b-8798-266831def943",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ",
+          "mode": "list",
+          "cachedResultName": "Sales CRM Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "leadId": "={{ $json.leadId }}",
+            "lastFollowUp": "Day 5 - Special Offer Sent",
+            "nextFollowUp": "Day 7 - Final Follow-up",
+            "followUpStatus": "Active",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "leadId"
+          ],
+          "schema": [
+            {
+              "id": "leadId",
+              "displayName": "Lead ID",
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lastFollowUp",
+              "displayName": "Last Follow-up",
+              "type": "string"
+            },
+            {
+              "id": "nextFollowUp",
+              "displayName": "Next Follow-up",
+              "type": "string"
+            },
+            {
+              "id": "followUpStatus",
+              "displayName": "Follow-up Status",
+              "type": "string"
+            },
+            {
+              "id": "updatedAt",
+              "displayName": "Updated At",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1456,
+        4384
+      ],
+      "id": "be61baf6-ae4f-483c-8e1e-71cd46b9d693",
+      "name": "Update CRM (Day 5)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YaHUKZZp1YBARNKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "days"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1456,
+        4528
+      ],
+      "id": "38fd97ba-018a-426b-a0ba-f0639924e2e9",
+      "name": "Wait 2 Days (Day 7)",
+      "webhookId": "wait-day7-webhook-main"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const leadStatus = $json.leadStatus || 'New Lead';\nconst inactiveStatuses = ['Won', 'Lost', 'Closed', 'Unqualified Rejected'];\n\nif (inactiveStatuses.includes(leadStatus)) {\n  return null;\n}\n\nreturn { json: $json };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        4528
+      ],
+      "id": "3334eb51-9d2e-4c55-99c9-86478a17c35a",
+      "name": "Check Lead Active (Day 7)"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Final Message - {{$json.fullName}}, We'd Love to Help",
+        "message": "=<html><body style='font-family:Arial,sans-serif;line-height:1.6;color:#333'><h2>Hi {{$json.fullName}},</h2><p>This is our final follow-up regarding {{$json.service}}. We want to make sure we haven't missed an opportunity to help {{$json.company}} grow.</p><p>I understand that you're busy, and the timing might not be perfect right now. However, I wanted to leave you with a few important points:</p><div style='background:#fce4ec;padding:15px;border-radius:5px;margin:20px 0'><h3>Why {{$json.service}} is Important Now:</h3><ul><li>🚀 <b>Competitive Advantage:</b> Your competitors might already be using similar solutions</li><li>💰 <b>Cost Savings:</b> Automate processes and reduce operational costs</li><li>⚡ <b>Faster Growth:</b> Scale without proportional increase in team size</li><li>📊 <b>Better Insights:</b> Data-driven decisions for your business</li></ul></div><p><b>Your Next Step Options:</b></p><ol><li><b>Schedule a Quick Chat</b> (15 mins) - No commitment, just explore possibilities</li><li><b>Email Your Questions</b> - I'll respond within 2 hours</li><li><b>Ask for References</b> - Talk to similar companies using our solution</li><li><b>Keep My Info</b> - Reach out when you're ready</li></ol><p>If you'd like to explore {{$json.service}} at any point, I'm here for you.</p><p>Best Regards,<br><b>Your Sales Team</b><br><br><b>Contact Info:</b><br>Email: sales@yourcompany.com<br>Phone: [Your Phone]<br>Website: www.yourcompany.com</p><hr><p style='font-size:12px;color:#999'>If you'd like to unsubscribe from future communications, please reply with 'UNSUBSCRIBE'.</p></body></html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1936,
+        4432
+      ],
+      "id": "d4a3b609-2943-441a-8295-80ea92ed75e8",
+      "name": "Final Follow-up Email (Day 7)",
+      "webhookId": "d9bf4945-25ff-4c0e-a699-858b2ec83491",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ",
+          "mode": "list",
+          "cachedResultName": "Sales CRM Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "leadId": "={{ $json.leadId }}",
+            "leadStatus": "Nurturing",
+            "lastFollowUp": "Day 7 - Final Follow-up Sent",
+            "nextFollowUp": "30-Day Re-engagement",
+            "followUpStatus": "Completed",
+            "pipelineStage": "Nurture",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "leadId"
+          ],
+          "schema": [
+            {
+              "id": "leadId",
+              "displayName": "Lead ID",
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "leadStatus",
+              "displayName": "Lead Status",
+              "type": "string"
+            },
+            {
+              "id": "lastFollowUp",
+              "displayName": "Last Follow-up",
+              "type": "string"
+            },
+            {
+              "id": "nextFollowUp",
+              "displayName": "Next Follow-up",
+              "type": "string"
+            },
+            {
+              "id": "followUpStatus",
+              "displayName": "Follow-up Status",
+              "type": "string"
+            },
+            {
+              "id": "pipelineStage",
+              "displayName": "Pipeline Stage",
+              "type": "string"
+            },
+            {
+              "id": "updatedAt",
+              "displayName": "Updated At",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2176,
+        4384
+      ],
+      "id": "1f4c32a6-b335-4e7d-9958-1b2d47e5c341",
+      "name": "Update CRM (Day 7)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YaHUKZZp1YBARNKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "deal-update",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1904,
+        4736
+      ],
+      "id": "a42aece5-3c83-4d93-9c62-205c6da141ac",
+      "name": "Deal Status Update Webhook",
+      "webhookId": "deal-update-webhook-main"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "deal-won-check",
+              "leftValue": "={{ $json.body.status }}",
+              "rightValue": "Won",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1664,
+        4736
+      ],
+      "id": "9c6c046a-bc16-44e2-98b1-dbf882c9f46e",
+      "name": "Deal Won or Lost?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ",
+          "mode": "list",
+          "cachedResultName": "Sales CRM Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "leadId": "={{ $json.body.leadId }}",
+            "leadStatus": "Won",
+            "pipelineStage": "Closed Won",
+            "dealValue": "={{ Number($json.body.dealValue) || 0 }}",
+            "followUpStatus": "Closed",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "leadId"
+          ],
+          "schema": [
+            {
+              "id": "leadId",
+              "displayName": "Lead ID",
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "leadStatus",
+              "displayName": "Lead Status",
+              "type": "string"
+            },
+            {
+              "id": "pipelineStage",
+              "displayName": "Pipeline Stage",
+              "type": "string"
+            },
+            {
+              "id": "dealValue",
+              "displayName": "Deal Value",
+              "type": "number"
+            },
+            {
+              "id": "followUpStatus",
+              "displayName": "Follow-up Status",
+              "type": "string"
+            },
+            {
+              "id": "updatedAt",
+              "displayName": "Updated At",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1424,
+        4656
+      ],
+      "id": "0a5928fb-4d12-40c8-b4dc-3f4cc9615b4b",
+      "name": "Mark Deal Won",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YaHUKZZp1YBARNKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.body.email }}",
+        "subject": "=🎉 Welcome Onboard! Your {{$json.body.service}} Account is Active",
+        "message": "=<html><body style='font-family:Arial,sans-serif;line-height:1.6;color:#333'><div style='background:#e8f5e9;border:2px solid #4caf50;padding:20px;border-radius:5px'><h2 style='color:#1b5e20;margin-top:0'>🎉 Welcome to {{$json.body.service}}!</h2><p>Congratulations! Your deal is confirmed and your account is now active.</p></div><p>Hello {{$json.body.fullName}},</p><p>We're thrilled to have {{$json.body.company}} on board. Your {{$json.body.service}} implementation is now live.</p><table style='width:100%;border-collapse:collapse;background:#f5f5f5;margin:20px 0'><tr><td style='padding:10px;border:1px solid #ddd'><b>Deal Confirmation</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.body.leadId}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Service</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.body.service}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Deal Amount</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.body.currency}} {{$json.body.dealValue}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Start Date</b></td><td style='padding:10px;border:1px solid #ddd'>{{ new Date().toLocaleDateString() }}</td></tr></table><h3>Next Steps:</h3><ol><li>You'll receive account credentials within 1 hour</li><li>Onboarding team will contact you to schedule setup</li><li>Implementation will begin as per agreed timeline</li><li>Dedicated support available 24/7</li></ol><p>If you have any questions, reach out to our support team immediately.</p><p>Best Regards,<br><b>Sales & Implementation Team</b></p></body></html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1184,
+        4656
+      ],
+      "id": "79d512d6-9ce0-478a-9c39-a3f004b3badb",
+      "name": "Send Deal Confirmation Email",
+      "webhookId": "1c546a22-75e0-4813-9131-f6d012be62c8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ",
+          "mode": "list",
+          "cachedResultName": "Sales CRM Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "leadId": "={{ $json.body.leadId }}",
+            "leadStatus": "Lost",
+            "pipelineStage": "Closed Lost",
+            "followUpStatus": "Closed",
+            "aiRecommendation": "={{ 'Lost Deal - Reason: ' + ($json.body.reason || 'Not specified') }}",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "leadId"
+          ],
+          "schema": [
+            {
+              "id": "leadId",
+              "displayName": "Lead ID",
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "leadStatus",
+              "displayName": "Lead Status",
+              "type": "string"
+            },
+            {
+              "id": "pipelineStage",
+              "displayName": "Pipeline Stage",
+              "type": "string"
+            },
+            {
+              "id": "followUpStatus",
+              "displayName": "Follow-up Status",
+              "type": "string"
+            },
+            {
+              "id": "aiRecommendation",
+              "displayName": "AI Recommendation",
+              "type": "string"
+            },
+            {
+              "id": "updatedAt",
+              "displayName": "Updated At",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1424,
+        4816
+      ],
+      "id": "dd8025fc-9078-4640-b9aa-28086553fa15",
+      "name": "Mark Deal Lost",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YaHUKZZp1YBARNKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "sales-manager@yourcompany.com",
+        "subject": "=❌ Deal Lost Analysis - {{$json.body.fullName}} (Reason: {{$json.body.reason}})",
+        "message": "=<html><body style='font-family:Arial,sans-serif;line-height:1.6;color:#333'><div style='background:#ffebee;border:2px solid #f44336;padding:15px;border-radius:5px'><h2 style='color:#c62828'>Deal Lost Report</h2></div><p><b>A deal has been marked as lost. Here are the details:</b></p><table style='width:100%;border-collapse:collapse;background:#f5f5f5;margin:20px 0'><tr><td style='padding:10px;border:1px solid #ddd'><b>Lead Name</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.body.fullName}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Company</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.body.company}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Lead ID</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.body.leadId}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Service</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.body.service}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Deal Value</b></td><td style='padding:10px;border:1px solid #ddd'>{{$json.body.currency}} {{$json.body.dealValue}}</td></tr><tr><td style='padding:10px;border:1px solid #ddd'><b>Lost Reason</b></td><td style='padding:10px;border:1px solid #ddd;color:red'><b>{{$json.body.reason}}</b></td></tr></table><p><b>Recommended Actions:</b></p><ul><li>Analyze why the deal was lost</li><li>Update loss reason in CRM</li><li>Schedule follow-up for future opportunities</li><li>Share learnings with sales team</li></ul></body></html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1184,
+        4816
+      ],
+      "id": "81eb8320-d3df-472a-82b9-0d35492526d2",
+      "name": "Notify Manager - Deal Lost",
+      "webhookId": "8ad124f1-bcbf-43ad-a518-9ecf76f0abbf",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1904,
+        5136
+      ],
+      "id": "8d24bc82-4402-411b-8ef2-7bbbbc055e16",
+      "name": "Weekly Report Schedule"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ",
+          "mode": "list",
+          "cachedResultName": "Sales CRM Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FArf80cmcbBXUCoLKbSCDP1yn1yJRVEw_9pNVRcYBfQ/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1664,
+        5136
+      ],
+      "id": "85466b54-ff06-4585-98be-769e468265d4",
+      "name": "Read All Leads",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YaHUKZZp1YBARNKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const leads = $input.all().map(item => item.json);\n\nconst stats = {\n  totalLeads: leads.length,\n  hotLeads: leads.filter(l => l.leadCategory === 'Hot Lead').length,\n  warmLeads: leads.filter(l => l.leadCategory === 'Warm Lead').length,\n  coldLeads: leads.filter(l => l.leadCategory === 'Cold Lead').length,\n  wonDeals: leads.filter(l => l.leadStatus === 'Won').length,\n  lostDeals: leads.filter(l => l.leadStatus === 'Lost').length,\n  activeLeads: leads.filter(l => ['New Lead', 'Contacted', 'Qualified'].includes(l.leadStatus)).length,\n  conversionRate: (leads.filter(l => l.leadStatus === 'Won').length / leads.length * 100).toFixed(2),\n  totalValue: leads.filter(l => l.leadStatus === 'Won').reduce((sum, l) => sum + (Number(l.dealValue) || 0), 0),\n  avgScore: (leads.reduce((sum, l) => sum + (Number(l.leadScore) || 0), 0) / leads.length).toFixed(1)\n};\n\nconst sources = {};\nleads.forEach(l => {\n  sources[l.source] = (sources[l.source] || 0) + 1;\n});\n\nconst topSource = Object.entries(sources).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';\n\nreturn [{\n  json: {\n    reportDate: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n    ...stats,\n    topLeadSource: topSource,\n    sourceBreakdown: JSON.stringify(sources)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        5136
+      ],
+      "id": "6f7dc054-d23b-4139-ad51-a0b5f25c1b9e",
+      "name": "Generate Report Statistics"
+    },
+    {
+      "parameters": {
+        "sendTo": "sales-manager@yourcompany.com",
+        "subject": "=📊 Weekly Sales Report - {{$json.reportDate}}",
+        "message": "=<html><body style='font-family:Arial,sans-serif;line-height:1.6;color:#333'><h1 style='color:#1976d2'>📊 Weekly Sales Performance Report</h1><p><b>Report Date:</b> {{$json.reportDate}}</p><hr><h2>📈 Lead Statistics</h2><table style='width:100%;border-collapse:collapse;background:#f5f5f5'><tr style='background:#1976d2;color:white'><td style='padding:12px;border:1px solid #ddd'><b>Metric</b></td><td style='padding:12px;border:1px solid #ddd;text-align:right'><b>Count</b></td></tr><tr><td style='padding:12px;border:1px solid #ddd'>Total Leads</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold'>{{$json.totalLeads}}</td></tr><tr style='background:#ffebee'><td style='padding:12px;border:1px solid #ddd'>🔥 Hot Leads</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold;color:red'>{{$json.hotLeads}}</td></tr><tr><td style='padding:12px;border:1px solid #ddd'>🟡 Warm Leads</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold'>{{$json.warmLeads}}</td></tr><tr style='background:#e8f5e9'><td style='padding:12px;border:1px solid #ddd'>❄️ Cold Leads</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold'>{{$json.coldLeads}}</td></tr><tr><td style='padding:12px;border:1px solid #ddd'>Active Leads</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold'>{{$json.activeLeads}}</td></tr></table><h2 style='margin-top:30px'>💰 Revenue & Conversion</h2><table style='width:100%;border-collapse:collapse;background:#f5f5f5'><tr style='background:#388e3c;color:white'><td style='padding:12px;border:1px solid #ddd'><b>Metric</b></td><td style='padding:12px;border:1px solid #ddd;text-align:right'><b>Value</b></td></tr><tr><td style='padding:12px;border:1px solid #ddd'>✅ Deals Won</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold;color:green'>{{$json.wonDeals}}</td></tr><tr><td style='padding:12px;border:1px solid #ddd'>❌ Deals Lost</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold;color:red'>{{$json.lostDeals}}</td></tr><tr><td style='padding:12px;border:1px solid #ddd'>📊 Conversion Rate</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold'>{{$json.conversionRate}}%</td></tr><tr><td style='padding:12px;border:1px solid #ddd'>💵 Total Revenue</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold'>{{$json.totalValue}}</td></tr><tr><td style='padding:12px;border:1px solid #ddd'>🎯 Average Lead Score</td><td style='padding:12px;border:1px solid #ddd;text-align:right;font-weight:bold'>{{$json.avgScore}}</td></tr></table><h2 style='margin-top:30px'>🔍 Lead Source Analysis</h2><p><b>Top Lead Source:</b> {{$json.topLeadSource}}</p><p><b>Source Breakdown:</b> {{$json.sourceBreakdown}}</p><hr><p style='color:#999;font-size:12px'>This is an automated report. For detailed analysis, please visit your sales dashboard.</p></body></html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1184,
+        5136
+      ],
+      "id": "fad3a5db-c72c-47da-9d03-583f10cf76e2",
+      "name": "Send Weekly Report Email",
+      "webhookId": "87d964e7-42e3-46f4-889f-d8ff587f90c0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KlvDsJ6zG7jv10V9",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Lead Capture Webhook": {
+      "main": [
+        [
+          {
+            "node": "Lead Data Validator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Data Validator": {
+      "main": [
+        [
+          {
+            "node": "Lead Scoring Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Scoring Engine": {
+      "main": [
+        [
+          {
+            "node": "Save Lead to CRM",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Lead to CRM": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "Hot Lead Detected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hot Lead Detected?": {
+      "main": [
+        [
+          {
+            "node": "Send Hot Lead Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 1 Day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Hot Lead Alert": {
+      "main": [
+        [
+          {
+            "node": "Wait 1 Day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 1 Day": {
+      "main": [
+        [
+          {
+            "node": "Check Lead Active (Day 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Lead Active (Day 1)": {
+      "main": [
+        [
+          {
+            "node": "Follow-up Email (Day 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Follow-up Email (Day 1)": {
+      "main": [
+        [
+          {
+            "node": "Update CRM (Day 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update CRM (Day 1)": {
+      "main": [
+        [
+          {
+            "node": "Wait 2 Days (Day 3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2 Days (Day 3)": {
+      "main": [
+        [
+          {
+            "node": "Check Lead Active (Day 3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Lead Active (Day 3)": {
+      "main": [
+        [
+          {
+            "node": "Follow-up Email (Day 3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Follow-up Email (Day 3)": {
+      "main": [
+        [
+          {
+            "node": "Update CRM (Day 3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update CRM (Day 3)": {
+      "main": [
+        [
+          {
+            "node": "Wait 2 Days (Day 5)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2 Days (Day 5)": {
+      "main": [
+        [
+          {
+            "node": "Check Lead Active (Day 5)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Lead Active (Day 5)": {
+      "main": [
+        [
+          {
+            "node": "Special Offer Email (Day 5)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Special Offer Email (Day 5)": {
+      "main": [
+        [
+          {
+            "node": "Update CRM (Day 5)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update CRM (Day 5)": {
+      "main": [
+        [
+          {
+            "node": "Wait 2 Days (Day 7)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2 Days (Day 7)": {
+      "main": [
+        [
+          {
+            "node": "Check Lead Active (Day 7)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Lead Active (Day 7)": {
+      "main": [
+        [
+          {
+            "node": "Final Follow-up Email (Day 7)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Follow-up Email (Day 7)": {
+      "main": [
+        [
+          {
+            "node": "Update CRM (Day 7)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal Status Update Webhook": {
+      "main": [
+        [
+          {
+            "node": "Deal Won or Lost?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal Won or Lost?": {
+      "main": [
+        [
+          {
+            "node": "Mark Deal Won",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Deal Lost",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Deal Won": {
+      "main": [
+        [
+          {
+            "node": "Send Deal Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Deal Lost": {
+      "main": [
+        [
+          {
+            "node": "Notify Manager - Deal Lost",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Report Schedule": {
+      "main": [
+        [
+          {
+            "node": "Read All Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read All Leads": {
+      "main": [
+        [
+          {
+            "node": "Generate Report Statistics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report Statistics": {
+      "main": [
+        [
+          {
+            "node": "Send Weekly Report Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "37f789fc-57f3-4967-887d-c25abab74284",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ceff2089839f56d791f30b588b5102ee964a7a6881c7f488ff172f2aeba42cc9"
+  },
+  "id": "I8O0EHnVw8wD6c2d",
+  "tags": [
+    {
+      "updatedAt": "2026-05-20T05:00:57.526Z",
+      "createdAt": "2026-05-20T05:00:57.526Z",
+      "id": "IXcUfHOMPTshSDzt",
+      "name": "Sales Automation"
+    }
+  ]
+}
